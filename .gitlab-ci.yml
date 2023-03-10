@@ -18,6 +18,7 @@ publish:
     - aws --version
     - docker --version
   script:
+      # push to ECR
     - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
     - docker build -t $APP_NAME . 
     - docker tag $APP_NAME:latest $ECR_REGISTRY/$APP_NAME:$ECR_TAG
@@ -26,7 +27,6 @@ publish:
 eks_deploy:
   image: 
     name: docker.io/amazon/aws-cli
-    #copy: agora/k8s_config/deployment.yml .
     entrypoint: [""]
   services:
     - docker:dind
@@ -36,22 +36,21 @@ eks_deploy:
     - docker --version
     - chmod a+x ./k8s_config/pull-wait.sh ./k8s_config/install_kubectl.sh ./k8s_config/k8s-deployment.sh
 
-
   script:
-
+    #connect to ECR
     - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
     # sometimes the image takes its time to reach the ecr 
     - k8s_config/pull-wait.sh
-
-
     - echo "Docker image is now available in ECR registry. Pulling image..."
 
+    # pull image and connect to EKS cluster
     - docker pull $ECR_REGISTRY/$APP_NAME:$ECR_TAG
     - aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $CLUSTER_NAME
 
+    # script installing kubectl
     - k8s_config/install_kubectl.sh
 
-    - kubectl set image deployment/project-deployment agora-project-cotainer=$ECR_REGISTRY/$APP_NAME:$ECR_TAG
+    # deploy to eks
     - k8s_config/k8s-deployment.sh
 
