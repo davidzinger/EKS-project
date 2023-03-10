@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-deployment
+  labels:
+    app: agora-project-app
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: agora-project-app
+  template:
+    metadata:
+      labels:
+        app: agora-project-app
+    spec:
+      containers:
+      - name: agora-project-cotainer
+        image: 725558264891.dkr.ecr.us-east-2.amazonaws.com/agora-react-app-repo:7
+        ports:
+        - containerPort: 3000
+
