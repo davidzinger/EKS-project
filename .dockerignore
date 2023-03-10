@@ -1,0 +1,8 @@
+# ignore all files and directories starting with . or _
+.*
+_* 
+
+# ignore specific files/directories
+README.md
+terraform
+k8s_config
