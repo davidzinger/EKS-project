@@ -1,0 +1,57 @@
+variables:
+  ECR_REGISTRY: 725558264891.dkr.ecr.us-east-2.amazonaws.com
+  AWS_DEFAULT_REGION: us-east-2
+  CLUSTER_NAME: education-eks-5iHx7ptu
+  APP_NAME: agora-react-app-repo
+  DOCKER_HOST: tcp://docker:2375
+  ECR_TAG: $CI_PIPELINE_IID
+  
+
+publish:
+  image: 
+    name: amazon/aws-cli
+    entrypoint: [""]
+  services:
+    - docker:dind
+  before_script:
+    - amazon-linux-extras install docker
+    - aws --version
+    - docker --version
+  script:
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+    - docker build -t $APP_NAME . 
+    - docker tag $APP_NAME:latest $ECR_REGISTRY/$APP_NAME:$ECR_TAG
+    - docker push $ECR_REGISTRY/$APP_NAME:$ECR_TAG
+
+eks_deploy:
+  image: 
+    name: docker.io/amazon/aws-cli
+    #copy: agora/k8s_config/deployment.yml .
+    entrypoint: [""]
+  services:
+    - docker:dind
+  before_script:
+    - amazon-linux-extras install docker
+    - aws --version
+    - docker --version
+    - chmod a+x ./k8s_config/pull-wait.sh ./k8s_config/install_kubectl.sh ./k8s_config/k8s-deployment.sh
+
+
+  script:
+
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+    # sometimes the image takes its time to reach the ecr 
+    - k8s_config/pull-wait.sh
+
+
+    - echo "Docker image is now available in ECR registry. Pulling image..."
+
+    - docker pull $ECR_REGISTRY/$APP_NAME:$ECR_TAG
+    - aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $CLUSTER_NAME
+
+    - k8s_config/install_kubectl.sh
+
+    - kubectl set image deployment/project-deployment agora-project-cotainer=$ECR_REGISTRY/$APP_NAME:$ECR_TAG
+    - k8s_config/k8s-deployment.sh
+
